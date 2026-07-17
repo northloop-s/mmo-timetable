@@ -166,9 +166,7 @@
     <div class="stages" id="stages"></div>
   </div>
 
-  <footer>
-    <p>このページは真夜中音楽祭のタイムテーブルです。見るだけのページで、ログイン・入力・ダウンロードを求めることは一切ありません。</p>
-  </footer>
+  <footer id="footer"></footer>
 </div>
 
 <script>
@@ -199,7 +197,10 @@ const FALLBACK = {
   settings: `項目,値
 イベント名,真夜中音楽祭
 開催日,
-開場時刻,20:30`,
+開場時刻,20:30
+開催日未定時の表示,9月◯日（仮）
+開場案内,城下町ステージへどうぞ
+注意書き,このページは真夜中音楽祭のタイムテーブルです。見るだけのページで、ログイン・入力・ダウンロードを求めることは一切ありません。`,
   stages: `ステージ名,再生リストURL
 酒場ステージ,
 城下町ステージ,
@@ -499,7 +500,7 @@ async function main() {
 
   const dateLabel = state.eventDate
     ? state.eventDate.mo + "月" + state.eventDate.d + "日"
-    : "9月◯日（仮）";
+    : (settings["開催日未定時の表示"] || "9月◯日（仮）");
   const doorsMin = toMin(settings["開場時刻"]);
   document.getElementById("subtitle").textContent =
     dateLabel
@@ -509,10 +510,19 @@ async function main() {
 
   const doors = document.getElementById("doors");
   if (doorsMin !== null) {
-    doors.textContent = "♪ " + fmt(doorsMin) + " 開場 — 城下町ステージへどうぞ ♪";
+    const guide = settings["開場案内"] || "城下町ステージへどうぞ";
+    doors.textContent = "♪ " + fmt(doorsMin) + " 開場 — " + guide + " ♪";
   } else {
     doors.style.display = "none";
   }
+
+  // 注意書き（フッター下部）。「設定」タブが空欄なら、これまでどおりの文言を表示する
+  const footer = document.getElementById("footer");
+  const notice = settings["注意書き"]
+    || "このページは真夜中音楽祭のタイムテーブルです。見るだけのページで、ログイン・入力・ダウンロードを求めることは一切ありません。";
+  const p = document.createElement("p");
+  p.textContent = notice;
+  footer.replaceChildren(p);
 
   buildStages(stageRows, actRows);
   placeOverlays(eventRows);
