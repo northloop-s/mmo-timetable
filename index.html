@@ -37,7 +37,7 @@
   header h1 {
     font-size: 46px; font-weight: 900; letter-spacing: 2px;
     transform: rotate(-1.5deg);
-    background: #1a1a1a; color: #f4efe6;
+    background: #33302b; color: #f4efe6;
     padding: 6px 26px; display: inline-block;
   }
   header h1 .n1 { color: #e09f1f; } header h1 .n2 { color: #d62828; }
@@ -45,7 +45,7 @@
 
   /* 開場のお知らせ */
   .doors {
-    background: #1a1a1a; color: #ffd166;
+    background: #33302b; color: #ffd166;
     border-radius: 10px; padding: 10px 16px; margin-bottom: 14px;
     text-align: center; font-size: 18px; font-weight: 900; letter-spacing: 1px;
   }
@@ -100,6 +100,8 @@
 
   .act {
     position: absolute; left: 0; right: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center;
     background: #fff;
     border: 2px solid #1a1a1a; border-radius: 8px;
     border-left-width: 9px;
@@ -117,7 +119,7 @@
   /* 全体進行（開会式・移動・休憩・閉会式）の帯 */
   .eventband {
     position: absolute; left: 0; right: 0; z-index: 2;
-    background: #1a1a1a; color: #fff;
+    background: #33302b; color: #fff;
     border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
     font-size: 16px; font-weight: 900; letter-spacing: 1px;
@@ -165,7 +167,6 @@
   </div>
 
   <footer>
-    <p id="footer"></p>
     <p>このページは真夜中音楽祭のタイムテーブルです。見るだけのページで、ログイン・入力・ダウンロードを求めることは一切ありません。</p>
   </footer>
 </div>
@@ -460,25 +461,6 @@ function updateNow() {
   return { now, glowing };
 }
 
-function setFooter({ now, glowing }) {
-  const f = document.getElementById("footer");
-  if (!state.eventDate) {
-    f.textContent = "※ 仮データによる試作です。黄色く光っている枠は「いま演奏中」の見本（"
-      + DEMO_TIME + "時点）。開催日を設定すると、当日は実際の時刻に合わせて光ります。";
-  } else if (now === null) {
-    f.textContent = "※ 開催日当日になると、いま演奏中のパフォーマーが黄色く光ります。";
-  } else if (glowing > 0) {
-    f.textContent = "※ 黄色く光っている枠が、いま演奏中のパフォーマーです（" + fmt(now) + " 時点）。";
-  } else if (now < state.axisStart) {
-    f.textContent = "※ " + fmt(now) + " 現在、まだ開演していません（" + fmt(state.axisStart)
-      + " 開演）。演奏が始まると、そのパフォーマーが黄色く光ります。";
-  } else if (now >= state.axisEnd) {
-    f.textContent = "※ 本日の演奏はすべて終了しました。ありがとうございました。";
-  } else {
-    f.textContent = "※ " + fmt(now) + " 現在、演奏の入れ替え中です。次の演奏が始まると黄色く光ります。";
-  }
-}
-
 async function main() {
   drawDecorations();
 
@@ -520,21 +502,21 @@ async function main() {
     : "9月◯日（仮）";
   const doorsMin = toMin(settings["開場時刻"]);
   document.getElementById("subtitle").textContent =
-    "TIMETABLE ｜ " + dateLabel
+    dateLabel
     + (doorsMin !== null ? " " + fmt(doorsMin) + " 開場 ／ " : " ")
     + fmt(state.axisStart) + " – " + fmt(state.axisEnd)
-    + " ｜ " + stageRows.length + " STAGES 同時開催";
+    + " ｜ " + stageRows.length + "ステージ同時開催";
 
   const doors = document.getElementById("doors");
   if (doorsMin !== null) {
-    doors.textContent = "♪ " + fmt(doorsMin) + " 開場 — お好きなステージへどうぞ ♪";
+    doors.textContent = "♪ " + fmt(doorsMin) + " 開場 — 城下町ステージへどうぞ ♪";
   } else {
     doors.style.display = "none";
   }
 
   buildStages(stageRows, actRows);
   placeOverlays(eventRows);
-  setFooter(updateNow());
+  updateNow();
 
   // 文字の読み込みや画面幅の変化で位置がずれないよう、置き直す
   const replace = () => placeOverlays(eventRows);
@@ -543,7 +525,7 @@ async function main() {
   window.addEventListener("resize", () => { clearTimeout(t); t = setTimeout(replace, 150); });
 
   // 20秒ごとに「いま演奏中」を更新する
-  setInterval(() => setFooter(updateNow()), 20000);
+  setInterval(updateNow, 20000);
 }
 
 main();
