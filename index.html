@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>真夜中音楽祭 タイムテーブル</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #f4efe6;
+    color: #1a1a1a;
+    font-family: 'Noto Sans JP', sans-serif;
+    padding: 12px;
+  }
+
+  /* 背景に散る色つき音符（JSで配置） */
+  #bgnotes { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+  #bgnotes span { position: absolute; user-select: none; font-weight: 900; }
+
+  /* お祭りのしましま外枠 */
+  #frame {
+    position: relative; z-index: 1;
+    border: 10px solid;
+    border-image: repeating-linear-gradient(45deg,
+      #d62828 0 16px, #f4efe6 16px 20px,
+      #1d6fb8 20px 36px, #f4efe6 36px 40px,
+      #e09f1f 40px 56px, #f4efe6 56px 60px) 10;
+    background: rgba(244,239,230,.85);
+    padding: 0 14px 14px;
+  }
+
+  /* 三角の旗飾り（ガーランド） */
+  #bunting { display: block; width: 100%; height: 44px; margin-bottom: 4px; }
+
+  header { padding: 4px 4px 14px; text-align: center; }
+  header h1 {
+    font-size: 46px; font-weight: 900; letter-spacing: 2px;
+    transform: rotate(-1.5deg);
+    background: #1a1a1a; color: #f4efe6;
+    padding: 6px 26px; display: inline-block;
+  }
+  header h1 .n1 { color: #e09f1f; } header h1 .n2 { color: #d62828; }
+  header p { font-size: 19px; font-weight: 900; margin-top: 12px; letter-spacing: 1px; }
+
+  /* 開場のお知らせ */
+  .doors {
+    background: #1a1a1a; color: #ffd166;
+    border-radius: 10px; padding: 10px 16px; margin-bottom: 14px;
+    text-align: center; font-size: 18px; font-weight: 900; letter-spacing: 1px;
+  }
+
+  .board { display: flex; position: relative; background: #fff; border: 3px solid #1a1a1a; border-radius: 12px; padding: 14px 12px; }
+
+  .ruler { width: 66px; position: relative; flex-shrink: 0; }
+  .tick { position: absolute; right: 10px; font-size: 14px; font-weight: 900; color: #777; transform: translateY(-50%); }
+  .tick.hour { color: #1a1a1a; font-size: 16px; }
+  .tickline { position: absolute; left: 66px; right: 12px; height: 1px; background: #eee7d8; z-index: 0; }
+
+  .stages { display: flex; flex: 1; gap: 14px; position: relative; z-index: 1; }
+  .stage { flex: 1; min-width: 0; }
+
+  /* ステージ名＋再生リンクを1つのかたまりとして画面上部に貼り付ける */
+  .stage-head-group {
+    position: sticky; top: 0; z-index: 5;
+    margin-bottom: 8px;
+  }
+  /* 列と列のすき間にも白い下敷きを伸ばし、下を流れる帯が透けないようにする */
+  .stage-head-group::before {
+    content: ""; position: absolute; z-index: -1;
+    top: 0; bottom: 0; left: -7px; right: -7px;
+    background: #fff;
+  }
+  .stage-head {
+    height: 46px; display: flex; align-items: center; justify-content: center;
+    font-size: 19px; font-weight: 900; color: #fff;
+    border-radius: 8px;
+    letter-spacing: 2px;
+  }
+  .stage-head::before { content: "♪ "; }
+
+  .playlist-row { height: 30px; margin-top: 4px; }
+  .playlist-row.empty { visibility: hidden; }
+  .playlist {
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+    height: 100%;
+    background: #fff;
+    border: 2px solid var(--sc); border-radius: 6px;
+    font-size: 13px; font-weight: 900;
+    color: #1a1a1a; text-decoration: none;
+  }
+  .playlist .tri { color: var(--sc); }
+  .playlist:hover, .playlist:focus-visible {
+    background: var(--sc); color: #fff; outline: none;
+  }
+  .playlist:focus-visible { box-shadow: 0 0 0 3px rgba(26,26,26,.45); }
+  .playlist:hover .tri, .playlist:focus-visible .tri { color: #fff; }
+
+  .lane { position: relative; }
+
+  .act {
+    position: absolute; left: 0; right: 0;
+    background: #fff;
+    border: 2px solid #1a1a1a; border-radius: 8px;
+    border-left-width: 9px;
+    padding: 3px 8px;
+    overflow: hidden;
+    box-shadow: 2px 2px 0 rgba(26,26,26,.15);
+  }
+  .act .name { font-size: 16px; font-weight: 900; line-height: 1.3; }
+  .act .song { font-size: 13.5px; font-weight: 500; color: #555; line-height: 1.25; }
+  .act .song::before { content: "♪ "; }
+
+  /* 演奏中：背景色と影だけ（文字には何も被せない） */
+  .act.now { background: #fff3b0; box-shadow: 0 0 12px rgba(224,159,31,.8); }
+
+  /* 全体進行（開会式・移動・休憩・閉会式）の帯 */
+  .eventband {
+    position: absolute; left: 0; right: 0; z-index: 2;
+    background: #1a1a1a; color: #fff;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 900; letter-spacing: 1px;
+    text-align: center; padding: 0 8px;
+    overflow: hidden;
+  }
+  .eventband .em { color: #ffd166; }
+
+  footer { text-align: center; font-size: 13px; color: #666; margin-top: 14px; font-weight: 500; line-height: 1.6; }
+
+  .rotate-overlay { display: none; }
+  @media (orientation: portrait) and (max-width: 620px) {
+    .rotate-overlay {
+      display: flex; position: fixed; inset: 0; z-index: 99;
+      background: #f4efe6; color: #1a1a1a;
+      flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; gap: 14px; font-size: 18px; font-weight: 700; padding: 20px;
+    }
+    .rotate-overlay .icon { font-size: 52px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="bgnotes"></div>
+
+<div class="rotate-overlay">
+  <div class="icon">📱</div>
+  <div>スマートフォンを<br>横向きにしてください</div>
+</div>
+
+<div id="frame">
+  <svg id="bunting" preserveAspectRatio="none" viewBox="0 0 1200 44" aria-hidden="true"></svg>
+
+  <header>
+    <h1 id="title"></h1>
+    <p id="subtitle"></p>
+  </header>
+
+  <div class="doors" id="doors"></div>
+
+  <div class="board" id="board">
+    <div class="ruler" id="ruler"></div>
+    <div class="stages" id="stages"></div>
+  </div>
+
+  <footer>
+    <p id="footer"></p>
+    <p>このページは真夜中音楽祭のタイムテーブルです。見るだけのページで、ログイン・入力・ダウンロードを求めることは一切ありません。</p>
+  </footer>
+</div>
+
+<script>
+/* =========================================================================
+   設定
+   ------------------------------------------------------------------------
+   Googleスプレッドシートを使う準備ができたら、下の4つのアドレスを
+   「ウェブに公開」で発行したCSVのアドレスに差し替える。
+   手順は セットアップ手順.md を見ること。
+   アドレスの取得に失敗しても、ページ内の予備データで表示は崩れない。
+   ========================================================================= */
+const PUB = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQZG5_ZyoRydJOFzOgjbCBKpoG8kyDMbG8enIyAf0EMNY7NgdmOGgA_TMfNUoW_LXQyY90wTTQyvj6Q/pub";
+const CSV_URL = {
+  settings: PUB + "?gid=1434818944&single=true&output=csv",  // 設定
+  stages:   PUB + "?gid=189741262&single=true&output=csv",   // ステージ
+  acts:     PUB + "?gid=61089855&single=true&output=csv",    // 出演者
+  events:   PUB + "?gid=83536726&single=true&output=csv",    // 進行
+};
+
+// 開催日が未設定のとき、「いま」とみなす見本用の時刻
+const DEMO_TIME = "21:50";
+
+const PX_PER_MIN = 9;                                  // 1分あたりの高さ
+const STAGE_COLORS = ["#d62828", "#1d6fb8", "#e09f1f"]; // 左から順の色
+
+/* 予備データ（表が読めなかったときに使う。中身は上のCSVと同じ形） */
+const FALLBACK = {
+  settings: `項目,値
+イベント名,真夜中音楽祭
+開催日,
+開場時刻,20:30`,
+  stages: `ステージ名,再生リストURL
+酒場ステージ,
+城下町ステージ,
+教会ステージ,`,
+  events: `内容,開始時刻,終了時刻
+開会式,21:00,21:05
+各ステージへ移動 → 21:10 第一プログラム開始,21:05,21:10
+休憩 → 22:05 第二プログラム開始,21:55,22:05
+集合場所へ移動,22:50,22:55
+閉会式,22:55,23:00`,
+  acts: `ステージ,開始時刻,演奏時間,パフォーマー名,曲名
+酒場ステージ,21:10,8,吟遊詩人アルト,旅立ちの朝に
+酒場ステージ,21:44,10,鉄琴のドワーフ兄弟,鉱山ラプソディ
+城下町ステージ,21:10,7,竪琴のエル,城壁の夜明け
+教会ステージ,21:10,10,オカリナのモモ,朝もやの祈り`,
+};
+
+/* ---------------- 表を読む道具 ---------------- */
+
+// CSV（カンマ区切りの表）を行と列に分解する。引用符で囲まれたカンマも正しく扱う
+function parseCSV(text) {
+  text = text.replace(/^﻿/, "");
+  const rows = [];
+  let row = [], field = "", inQuote = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuote) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; } else { inQuote = false; }
+      } else { field += c; }
+    } else if (c === '"') { inQuote = true; }
+    else if (c === ",") { row.push(field); field = ""; }
+    else if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+    else if (c !== "\r") { field += c; }
+  }
+  if (field !== "" || row.length) { row.push(field); rows.push(row); }
+  return rows;
+}
+
+// 1行目を見出しにして、各行を「見出し→値」の形にする。空行は捨てる
+function toObjects(rows) {
+  if (!rows.length) return [];
+  const head = rows[0].map(h => h.trim());
+  return rows.slice(1)
+    .filter(r => r.some(c => c.trim() !== ""))
+    .map(r => Object.fromEntries(head.map((h, i) => [h, (r[i] ?? "").trim()])));
+}
+
+// "21:10" を、0時から数えた分に直す。書式が違えば null
+// Googleスプレッドシートが時刻として解釈すると "21:10:00" の形で出てくることがあるので、
+// 秒付きと全角コロンも受け付ける
+function toMin(hhmm) {
+  const s = String(hhmm ?? "").trim().replace(/：/g, ":");
+  const m = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(s);
+  if (!m) return null;
+  const h = Number(m[1]), mi = Number(m[2]);
+  if (h > 23 || mi > 59) return null;
+  return h * 60 + mi;
+}
+
+// "2026-09-20" を年月日に分ける。Googleスプレッドシートが日付として解釈すると
+// "2026/09/20" の形で出てくることがあるので、区切りは - と / の両方を受け付ける
+function parseDate(str) {
+  const m = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/.exec(String(str ?? "").trim());
+  return m ? { y: Number(m[1]), mo: Number(m[2]), d: Number(m[3]) } : null;
+}
+
+function fmt(totalMin) {
+  const h = Math.floor(totalMin / 60) % 24, m = totalMin % 60;
+  return h + ":" + String(m).padStart(2, "0");
+}
+
+async function loadCSV(key) {
+  try {
+    const res = await fetch(CSV_URL[key], { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    return toObjects(parseCSV(await res.text()));
+  } catch (e) {
+    console.warn("表を読めなかったので予備データを使います（" + key + "）:", e.message);
+    return toObjects(parseCSV(FALLBACK[key]));
+  }
+}
+
+/* ---------------- 飾り ---------------- */
+
+function drawDecorations() {
+  const bunting = document.getElementById("bunting");
+  for (let i = 0; i < 24; i++) {
+    const x = i * 50;
+    const p = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+    p.setAttribute("points", x + ",0 " + (x + 50) + ",0 " + (x + 25) + ",40");
+    p.setAttribute("fill", STAGE_COLORS[i % 3]);
+    bunting.appendChild(p);
+  }
+  const bg = document.getElementById("bgnotes");
+  const chars = ["♪", "♫", "♬", "♩"];
+  for (let i = 0; i < 30; i++) {
+    const sp = document.createElement("span");
+    sp.textContent = chars[i % chars.length];
+    sp.style.left = ((i * 37 + 13) % 100) + "%";
+    sp.style.top = ((i * 53 + 9) % 100) + "%";
+    sp.style.fontSize = (18 + (i * 7) % 28) + "px";
+    sp.style.transform = "rotate(" + (-24 + (i * 13) % 48) + "deg)";
+    sp.style.color = STAGE_COLORS[i % 3] + "22";
+    bg.appendChild(sp);
+  }
+}
+
+/* ---------------- 本体 ---------------- */
+
+// eventDate は parseDate が返す {y, mo, d}。未設定・読めない書式なら null（＝見本モード）
+const state = { axisStart: 0, axisEnd: 0, eventDate: null, acts: [] };
+
+function buildStages(stages, actRows) {
+  const stagesEl = document.getElementById("stages");
+  stagesEl.textContent = "";
+  const boardH = (state.axisEnd - state.axisStart) * PX_PER_MIN;
+  const anyPlaylist = stages.some(s => s["再生リストURL"]);
+
+  stages.forEach((s, i) => {
+    const color = STAGE_COLORS[i % STAGE_COLORS.length];
+    const col = document.createElement("div");
+    col.className = "stage";
+
+    const group = document.createElement("div");
+    group.className = "stage-head-group";
+
+    const head = document.createElement("div");
+    head.className = "stage-head";
+    head.style.background = color;
+    head.textContent = s["ステージ名"];
+    group.appendChild(head);
+
+    // 再生リストの段。どれか1つでもアドレスがあれば、全列に同じ高さの段を作る
+    // （片方だけ段があると、列ごとに時間軸がずれてしまうため）
+    if (anyPlaylist) {
+      const row = document.createElement("div");
+      row.className = "playlist-row";
+      const url = s["再生リストURL"];
+      if (url) {
+        const a = document.createElement("a");
+        a.className = "playlist";
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.style.setProperty("--sc", color);
+        a.innerHTML = '<span class="tri">▶</span> 再生リスト';
+        a.setAttribute("aria-label", s["ステージ名"] + " の再生リストを開く");
+        row.appendChild(a);
+      } else {
+        row.classList.add("empty");
+      }
+      group.appendChild(row);
+    }
+    col.appendChild(group);
+
+    const lane = document.createElement("div");
+    lane.className = "lane";
+    lane.style.height = boardH + "px";
+
+    actRows.filter(a => a["ステージ"] === s["ステージ名"]).forEach(a => {
+      const start = toMin(a["開始時刻"]);
+      const dur = Number(a["演奏時間"]);
+      if (start === null || !(dur > 0)) {
+        console.warn("時刻か演奏時間が読めない行を飛ばしました:", a);
+        return;
+      }
+      const el = document.createElement("div");
+      el.className = "act";
+      el.style.borderLeftColor = color;
+      el.style.top = ((start - state.axisStart) * PX_PER_MIN) + "px";
+      el.style.height = (dur * PX_PER_MIN - 3) + "px";
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = a["パフォーマー名"];
+      const song = document.createElement("div");
+      song.className = "song";
+      song.textContent = a["曲名"];
+      el.append(name, song);
+      lane.appendChild(el);
+      state.acts.push({ el, start, end: start + dur });
+    });
+
+    col.appendChild(lane);
+    stagesEl.appendChild(col);
+  });
+}
+
+// 目盛りと全体進行の帯を、実際に描かれた位置に合わせて置く
+function placeOverlays(events) {
+  const board = document.getElementById("board");
+  const ruler = document.getElementById("ruler");
+  const stagesEl = document.getElementById("stages");
+  const lane = stagesEl.querySelector(".lane");
+  if (!lane) return;
+
+  board.querySelectorAll(".tickline").forEach(e => e.remove());
+  stagesEl.querySelectorAll(".eventband").forEach(e => e.remove());
+  ruler.textContent = "";
+
+  const laneRect = lane.getBoundingClientRect();
+  const topInBoard = laneRect.top - board.getBoundingClientRect().top;
+  const topInRuler = laneRect.top - ruler.getBoundingClientRect().top;
+  const topInStages = laneRect.top - stagesEl.getBoundingClientRect().top;
+  const total = state.axisEnd - state.axisStart;
+
+  ruler.style.height = (topInRuler + total * PX_PER_MIN) + "px";
+  for (let m = 0; m <= total; m += 15) {
+    const t = document.createElement("div");
+    t.className = "tick" + ((state.axisStart + m) % 60 === 0 ? " hour" : "");
+    t.style.top = (topInRuler + m * PX_PER_MIN) + "px";
+    t.textContent = fmt(state.axisStart + m);
+    ruler.appendChild(t);
+
+    const line = document.createElement("div");
+    line.className = "tickline";
+    line.style.top = (topInBoard + m * PX_PER_MIN) + "px";
+    board.appendChild(line);
+  }
+
+  events.forEach(ev => {
+    const s = toMin(ev["開始時刻"]), e = toMin(ev["終了時刻"]);
+    if (s === null || e === null || e <= s) {
+      console.warn("時刻が読めない進行の行を飛ばしました:", ev);
+      return;
+    }
+    const band = document.createElement("div");
+    band.className = "eventband";
+    band.style.top = (topInStages + (s - state.axisStart) * PX_PER_MIN) + "px";
+    band.style.height = ((e - s) * PX_PER_MIN - 3) + "px";
+    const label = document.createElement("span");
+    label.textContent = "♪ " + ev["内容"] + "　";
+    const time = document.createElement("span");
+    time.className = "em";
+    time.textContent = fmt(s) + "〜" + fmt(e);
+    label.appendChild(time);
+    band.appendChild(label);
+    stagesEl.appendChild(band);
+  });
+}
+
+/* 「いま」が何分か。開催日当日でなければ null、開催日が未設定なら見本の時刻 */
+function currentMinutes() {
+  const d = state.eventDate;
+  if (!d) return toMin(DEMO_TIME);
+  const now = new Date();
+  if (now.getFullYear() !== d.y || now.getMonth() + 1 !== d.mo || now.getDate() !== d.d) return null;
+  return now.getHours() * 60 + now.getMinutes();
+}
+
+function updateNow() {
+  const now = currentMinutes();
+  let glowing = 0;
+  state.acts.forEach(a => {
+    const on = now !== null && now >= a.start && now < a.end;
+    if (on) glowing++;
+    a.el.classList.toggle("now", on);
+  });
+  return { now, glowing };
+}
+
+function setFooter({ now, glowing }) {
+  const f = document.getElementById("footer");
+  if (!state.eventDate) {
+    f.textContent = "※ 仮データによる試作です。黄色く光っている枠は「いま演奏中」の見本（"
+      + DEMO_TIME + "時点）。開催日を設定すると、当日は実際の時刻に合わせて光ります。";
+  } else if (now === null) {
+    f.textContent = "※ 開催日当日になると、いま演奏中のパフォーマーが黄色く光ります。";
+  } else if (glowing > 0) {
+    f.textContent = "※ 黄色く光っている枠が、いま演奏中のパフォーマーです（" + fmt(now) + " 時点）。";
+  } else if (now < state.axisStart) {
+    f.textContent = "※ " + fmt(now) + " 現在、まだ開演していません（" + fmt(state.axisStart)
+      + " 開演）。演奏が始まると、そのパフォーマーが黄色く光ります。";
+  } else if (now >= state.axisEnd) {
+    f.textContent = "※ 本日の演奏はすべて終了しました。ありがとうございました。";
+  } else {
+    f.textContent = "※ " + fmt(now) + " 現在、演奏の入れ替え中です。次の演奏が始まると黄色く光ります。";
+  }
+}
+
+async function main() {
+  drawDecorations();
+
+  const [settingsRows, stageRows, actRows, eventRows] = await Promise.all(
+    ["settings", "stages", "acts", "events"].map(loadCSV)
+  );
+
+  const settings = Object.fromEntries(settingsRows.map(r => [r["項目"], r["値"]]));
+  state.eventDate = parseDate(settings["開催日"]);
+  if (settings["開催日"] && !state.eventDate) {
+    console.warn('「設定」タブの開催日「' + settings["開催日"]
+      + '」が読めないので、見本モードで表示します。2026-09-20 の形で入れてください。');
+  }
+
+  // 時間軸の範囲を、進行と出演者の実データから決める（15分単位に丸める）
+  const starts = [], ends = [];
+  eventRows.forEach(e => {
+    const s = toMin(e["開始時刻"]), t = toMin(e["終了時刻"]);
+    if (s !== null) starts.push(s);
+    if (t !== null) ends.push(t);
+  });
+  actRows.forEach(a => {
+    const s = toMin(a["開始時刻"]), d = Number(a["演奏時間"]);
+    if (s !== null && d > 0) { starts.push(s); ends.push(s + d); }
+  });
+  if (!starts.length) { starts.push(21 * 60); ends.push(23 * 60); }
+  state.axisStart = Math.floor(Math.min(...starts) / 15) * 15;
+  state.axisEnd = Math.ceil(Math.max(...ends) / 15) * 15;
+
+  // 見出し
+  const name = settings["イベント名"] || "音楽祭";
+  const title = document.getElementById("title");
+  const n1 = document.createElement("span"); n1.className = "n1"; n1.textContent = "♪";
+  const n2 = document.createElement("span"); n2.className = "n2"; n2.textContent = "♪";
+  title.replaceChildren(n1, document.createTextNode(" " + name + " "), n2);
+
+  const dateLabel = state.eventDate
+    ? state.eventDate.mo + "月" + state.eventDate.d + "日"
+    : "9月◯日（仮）";
+  const doorsMin = toMin(settings["開場時刻"]);
+  document.getElementById("subtitle").textContent =
+    "TIMETABLE ｜ " + dateLabel
+    + (doorsMin !== null ? " " + fmt(doorsMin) + " 開場 ／ " : " ")
+    + fmt(state.axisStart) + " – " + fmt(state.axisEnd)
+    + " ｜ " + stageRows.length + " STAGES 同時開催";
+
+  const doors = document.getElementById("doors");
+  if (doorsMin !== null) {
+    doors.textContent = "♪ " + fmt(doorsMin) + " 開場 — お好きなステージへどうぞ ♪";
+  } else {
+    doors.style.display = "none";
+  }
+
+  buildStages(stageRows, actRows);
+  placeOverlays(eventRows);
+  setFooter(updateNow());
+
+  // 文字の読み込みや画面幅の変化で位置がずれないよう、置き直す
+  const replace = () => placeOverlays(eventRows);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(replace);
+  let t;
+  window.addEventListener("resize", () => { clearTimeout(t); t = setTimeout(replace, 150); });
+
+  // 20秒ごとに「いま演奏中」を更新する
+  setInterval(() => setFooter(updateNow()), 20000);
+}
+
+main();
+</script>
+</body>
+</html>
