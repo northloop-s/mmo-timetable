@@ -78,7 +78,7 @@
     letter-spacing: 2px;
     white-space: pre-line; text-align: center; line-height: 1.2;
   }
-  .stage-head::before { content: "♪ "; }
+  .stage-head::before { content: var(--note-mark, "♪ "); white-space: pre; }
 
   .playlist-row { height: 30px; margin-top: 4px; }
   .playlist-row.empty { visibility: hidden; }
@@ -106,7 +106,7 @@
     border-radius: 6px;
     font-size: 13px; font-weight: 900; letter-spacing: .5px;
   }
-  .mc::before { content: "🎤 "; }
+  .mc::before { content: var(--mc-mark, "🎤 "); white-space: pre; }
 
   .lane { position: relative; }
 
@@ -123,7 +123,7 @@
   }
   .act .name { font-size: 16px; font-weight: 900; line-height: 1.3; }
   .act .song { font-size: 13.5px; font-weight: 500; color: #555; line-height: 1.25; }
-  .act .song::before { content: "♪ "; }
+  .act .song::before { content: var(--note-mark, "♪ "); white-space: pre; }
 
   /* 演奏中：背景色と影だけ（文字には何も被せない） */
   .act.now { background: #fff3b0; box-shadow: 0 0 12px rgba(224,159,31,.8); }
@@ -159,8 +159,8 @@
 <div id="bgnotes"></div>
 
 <div class="rotate-overlay">
-  <div class="icon">📱</div>
-  <div>スマートフォンを<br>横向きにしてください</div>
+  <div class="icon" id="rotateIcon">📱</div>
+  <div id="rotateText">スマートフォンを<br>横向きにしてください</div>
 </div>
 
 <div id="frame">
@@ -364,8 +364,11 @@ function buildStages(stages, actRows) {
         a.target = "_blank";
         a.rel = "noopener noreferrer";
         a.style.setProperty("--sc", color);
-        a.innerHTML = '<span class="tri">▶</span> 再生リスト';
-        a.setAttribute("aria-label", s["ステージ名"] + " の再生リストを開く");
+        const tri = document.createElement("span");
+        tri.className = "tri";
+        tri.textContent = state.labels.play;
+        a.append(tri, document.createTextNode(" " + state.labels.saisei));
+        a.setAttribute("aria-label", s["ステージ名"] + " の" + state.labels.saisei + "を開く");
         row.appendChild(a);
       } else {
         row.classList.add("empty");
@@ -373,8 +376,11 @@ function buildStages(stages, actRows) {
       group.appendChild(row);
     }
 
-    // 司会者名の段。どれか1つでも名前があれば、全列に同じ高さの段を作る
-    // （片方だけ段があると、列ごとに時間軸がずれてしまうため）
+    col.appendChild(group);
+
+    // 司会者名の段。貼り付くかたまり（group）の外に置くので、スクロールすると
+    // ステージ名・再生リストと違って流れて消える。
+    // どれか1つでも名前があれば、全列に同じ高さの段を作る（列ごとに時間軸がずれないように）
     if (anyMC) {
       const mcRow = document.createElement("div");
       mcRow.className = "mc-row";
@@ -383,14 +389,13 @@ function buildStages(stages, actRows) {
         const mc = document.createElement("div");
         mc.className = "mc";
         mc.style.setProperty("--sc", color);
-        mc.textContent = "司会：" + mcName;
+        mc.textContent = state.labels.shikai + mcName;
         mcRow.appendChild(mc);
       } else {
         mcRow.classList.add("empty");
       }
-      group.appendChild(mcRow);
+      col.appendChild(mcRow);
     }
-    col.appendChild(group);
 
     const lane = document.createElement("div");
     lane.className = "lane";
@@ -467,7 +472,8 @@ function placeOverlays(events) {
     band.style.top = (topInStages + (s - state.axisStart) * PX_PER_MIN) + "px";
     band.style.height = ((e - s) * PX_PER_MIN - 3) + "px";
     const label = document.createElement("span");
-    label.textContent = "♪ " + ev["内容"] + "　";
+    const bandMark = (state.labels && state.labels.onpu) ? state.labels.onpu + " " : "";
+    label.textContent = bandMark + ev["内容"] + "　";
     const time = document.createElement("span");
     time.className = "em";
     time.textContent = fmt(s) + "〜" + fmt(e);
@@ -511,6 +517,35 @@ async function main() {
       + '」が読めないので、見本モードで表示します。2026-09-20 の形で入れてください。');
   }
 
+  // 画面に出る言葉・記号を「設定」タブから読む道具。
+  // ・その行が無い → 既定値（今までどおりの文字）
+  // ・行があって空欄 → その文字を消す（＝表示しない）
+  // これで「行を足さなければ今のまま」「足して空にすれば消える」が両立する。
+  const S = (key, def) => (key in settings) ? settings[key] : def;
+  const T = {
+    onpu:   S("音符マーク", "♪"),
+    mic:    S("司会マーク", "🎤"),
+    play:   S("再生マーク", "▶"),
+    kaijo:  S("開場ラベル", "開場"),
+    saisei: S("再生リストラベル", "再生リスト"),
+    shikai: S("司会ラベル", "司会："),
+  };
+  state.labels = T;
+
+  // 飾りの音符・マイク記号は見た目だけの話なのでCSS変数で差し込む
+  const rootStyle = document.documentElement.style;
+  rootStyle.setProperty("--note-mark", JSON.stringify(T.onpu ? T.onpu + " " : ""));
+  rootStyle.setProperty("--mc-mark", JSON.stringify(T.mic ? T.mic + " " : ""));
+
+  // ブラウザのタブに出る見出し
+  document.title = S("タブ見出し", "真夜中音楽祭 タイムテーブル");
+
+  // スマホを縦に持ったときの案内
+  const rotateText = document.getElementById("rotateText");
+  if (rotateText) rotateText.textContent = S("回転案内", "スマートフォンを横向きにしてください");
+  const rotateIcon = document.getElementById("rotateIcon");
+  if (rotateIcon) rotateIcon.textContent = S("回転アイコン", "📱");
+
   // 時間軸の範囲を、進行と出演者の実データから決める（15分単位に丸める）
   const starts = [], ends = [];
   eventRows.forEach(e => {
@@ -529,24 +564,29 @@ async function main() {
   // 見出し
   const name = settings["イベント名"] || "音楽祭";
   const title = document.getElementById("title");
-  const n1 = document.createElement("span"); n1.className = "n1"; n1.textContent = "♪";
-  const n2 = document.createElement("span"); n2.className = "n2"; n2.textContent = "♪";
+  const n1 = document.createElement("span"); n1.className = "n1"; n1.textContent = T.onpu;
+  const n2 = document.createElement("span"); n2.className = "n2"; n2.textContent = T.onpu;
   title.replaceChildren(n1, document.createTextNode(" " + name + " "), n2);
 
   const dateLabel = state.eventDate
     ? state.eventDate.mo + "月" + state.eventDate.d + "日"
     : (settings["開催日未定時の表示"] || "9月◯日（仮）");
   const doorsMin = toMin(settings["開場時刻"]);
+  const sep1 = S("副題の区切り1", "／");
+  const timeSep = S("時刻の区切り", "–");
+  const sep2 = S("副題の区切り2", "｜");
+  const dojiLabel = S("同時開催ラベル", "ステージ同時開催");
   document.getElementById("subtitle").textContent =
     dateLabel
-    + (doorsMin !== null ? " " + fmt(doorsMin) + " 開場 ／ " : " ")
-    + fmt(state.axisStart) + " – " + fmt(state.axisEnd)
-    + " ｜ " + stageRows.length + "ステージ同時開催";
+    + (doorsMin !== null ? " " + fmt(doorsMin) + " " + T.kaijo + " " + sep1 + " " : " ")
+    + fmt(state.axisStart) + " " + timeSep + " " + fmt(state.axisEnd)
+    + " " + sep2 + " " + stageRows.length + dojiLabel;
 
   const doors = document.getElementById("doors");
   if (doorsMin !== null) {
     const guide = settings["開場案内"] || "城下町ステージへどうぞ";
-    doors.textContent = "♪ " + fmt(doorsMin) + " 開場 — " + guide + " ♪";
+    const doorSep = S("開場帯の区切り", "—");
+    doors.textContent = T.onpu + " " + fmt(doorsMin) + " " + T.kaijo + " " + doorSep + " " + guide + " " + T.onpu;
   } else {
     doors.style.display = "none";
   }
