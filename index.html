@@ -575,12 +575,13 @@ async function main() {
   const sep1 = S("副題の区切り1", "／");
   const timeSep = S("時刻の区切り", "–");
   const sep2 = S("副題の区切り2", "｜");
-  const dojiLabel = S("同時開催ラベル", "ステージ同時開催");
+  // 同時開催ラベルは、数字も含めて書いた文字をそのまま出す（ステージ数の自動付けはしない）
+  const dojiLabel = S("同時開催ラベル", stageRows.length + "ステージ同時開催");
   document.getElementById("subtitle").textContent =
     dateLabel
     + (doorsMin !== null ? " " + fmt(doorsMin) + " " + T.kaijo + " " + sep1 + " " : " ")
     + fmt(state.axisStart) + " " + timeSep + " " + fmt(state.axisEnd)
-    + " " + sep2 + " " + stageRows.length + dojiLabel;
+    + " " + sep2 + " " + dojiLabel;
 
   const doors = document.getElementById("doors");
   if (doorsMin !== null) {
