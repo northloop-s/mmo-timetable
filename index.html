@@ -73,9 +73,10 @@
   }
   .stage-head {
     height: 46px; display: flex; align-items: center; justify-content: center;
-    font-size: 19px; font-weight: 900; color: #fff;
+    font-size: 13px; font-weight: 900; color: #fff;
     border-radius: 8px;
     letter-spacing: 2px;
+    white-space: pre-line; text-align: center; line-height: 1.2;
   }
   .stage-head::before { content: "♪ "; }
 
@@ -95,6 +96,17 @@
   }
   .playlist:focus-visible { box-shadow: 0 0 0 3px rgba(26,26,26,.45); }
   .playlist:hover .tri, .playlist:focus-visible .tri { color: #fff; }
+
+  .mc-row { height: 28px; margin-top: 4px; }
+  .mc-row.empty { visibility: hidden; }
+  .mc {
+    display: flex; align-items: center; justify-content: center;
+    height: 100%;
+    background: var(--sc); color: #fff;
+    border-radius: 6px;
+    font-size: 13px; font-weight: 900; letter-spacing: .5px;
+  }
+  .mc::before { content: "🎤 "; }
 
   .lane { position: relative; }
 
@@ -128,7 +140,7 @@
   }
   .eventband .em { color: #ffd166; }
 
-  footer { text-align: center; font-size: 13px; color: #666; margin-top: 14px; font-weight: 500; line-height: 1.6; }
+  footer { text-align: center; font-size: 13px; color: #666; margin-top: 14px; font-weight: 500; line-height: 1.6; white-space: pre-line; }
 
   .rotate-overlay { display: none; }
   @media (orientation: portrait) and (max-width: 620px) {
@@ -201,10 +213,10 @@ const FALLBACK = {
 開催日未定時の表示,9月◯日（仮）
 開場案内,城下町ステージへどうぞ
 注意書き,このページは真夜中音楽祭のタイムテーブルです。見るだけのページで、ログイン・入力・ダウンロードを求めることは一切ありません。`,
-  stages: `ステージ名,再生リストURL
-酒場ステージ,
-城下町ステージ,
-教会ステージ,`,
+  stages: `ステージ名,再生リストURL,司会者名
+酒場ステージ,,
+城下町ステージ,,
+教会ステージ,,`,
   events: `内容,開始時刻,終了時刻
 開会式,21:00,21:05
 各ステージへ移動 → 21:10 第一プログラム開始,21:05,21:10
@@ -314,11 +326,16 @@ function drawDecorations() {
 // eventDate は parseDate が返す {y, mo, d}。未設定・読めない書式なら null（＝見本モード）
 const state = { axisStart: 0, axisEnd: 0, eventDate: null, acts: [] };
 
+// ステージ名の照合用。ステージ名を2行で書くと改行が入るが、
+// 「出演者」タブ側は1行なので、照合時だけ改行を消して突き合わせる
+function stageKey(str) { return String(str ?? "").replace(/[\r\n]/g, "").trim(); }
+
 function buildStages(stages, actRows) {
   const stagesEl = document.getElementById("stages");
   stagesEl.textContent = "";
   const boardH = (state.axisEnd - state.axisStart) * PX_PER_MIN;
   const anyPlaylist = stages.some(s => s["再生リストURL"]);
+  const anyMC = stages.some(s => s["司会者名"]);
 
   stages.forEach((s, i) => {
     const color = STAGE_COLORS[i % STAGE_COLORS.length];
@@ -331,7 +348,7 @@ function buildStages(stages, actRows) {
     const head = document.createElement("div");
     head.className = "stage-head";
     head.style.background = color;
-    head.textContent = s["ステージ名"];
+    head.textContent = String(s["ステージ名"] ?? "").replace(/\r\n?/g, "\n");
     group.appendChild(head);
 
     // 再生リストの段。どれか1つでもアドレスがあれば、全列に同じ高さの段を作る
@@ -355,13 +372,31 @@ function buildStages(stages, actRows) {
       }
       group.appendChild(row);
     }
+
+    // 司会者名の段。どれか1つでも名前があれば、全列に同じ高さの段を作る
+    // （片方だけ段があると、列ごとに時間軸がずれてしまうため）
+    if (anyMC) {
+      const mcRow = document.createElement("div");
+      mcRow.className = "mc-row";
+      const mcName = s["司会者名"];
+      if (mcName) {
+        const mc = document.createElement("div");
+        mc.className = "mc";
+        mc.style.setProperty("--sc", color);
+        mc.textContent = "司会：" + mcName;
+        mcRow.appendChild(mc);
+      } else {
+        mcRow.classList.add("empty");
+      }
+      group.appendChild(mcRow);
+    }
     col.appendChild(group);
 
     const lane = document.createElement("div");
     lane.className = "lane";
     lane.style.height = boardH + "px";
 
-    actRows.filter(a => a["ステージ"] === s["ステージ名"]).forEach(a => {
+    actRows.filter(a => stageKey(a["ステージ"]) === stageKey(s["ステージ名"])).forEach(a => {
       const start = toMin(a["開始時刻"]);
       const dur = Number(a["演奏時間"]);
       if (start === null || !(dur > 0)) {
@@ -521,7 +556,7 @@ async function main() {
   const notice = settings["注意書き"]
     || "このページは真夜中音楽祭のタイムテーブルです。見るだけのページで、ログイン・入力・ダウンロードを求めることは一切ありません。";
   const p = document.createElement("p");
-  p.textContent = notice;
+  p.textContent = String(notice).replace(/\r\n?/g, "\n");
   footer.replaceChildren(p);
 
   buildStages(stageRows, actRows);
