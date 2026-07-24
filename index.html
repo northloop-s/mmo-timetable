@@ -118,14 +118,15 @@
   .playlist:focus-visible { box-shadow: 0 0 0 3px rgba(26,26,26,.45); }
   .playlist:hover .tri, .playlist:focus-visible .tri { color: #fff; }
 
-  .mc-row { height: 28px; margin-top: 4px; }
+  .mc-row { height: 42px; margin-top: 4px; }
   .mc-row.empty { visibility: hidden; }
   .mc {
     display: flex; align-items: center; justify-content: center;
-    height: 100%;
+    height: 100%; padding: 2px 4px;
     background: var(--sc); color: #fff;
     border-radius: 6px;
     font-size: 13px; font-weight: 900; letter-spacing: .5px;
+    white-space: pre-line; text-align: center; line-height: 1.2;
   }
   .mc::before { content: var(--mc-mark, "🎤 "); white-space: pre; }
 
@@ -492,7 +493,7 @@ function buildStages(stages, actRows) {
         const mc = document.createElement("div");
         mc.className = "mc";
         mc.style.setProperty("--sc", color);
-        mc.textContent = state.labels.shikai + mcName;
+        mc.textContent = state.labels.shikai + String(mcName).replace(/\r\n?/g, "\n");
         mcRow.appendChild(mc);
       } else {
         mcRow.classList.add("empty");
