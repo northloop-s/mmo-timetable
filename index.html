@@ -53,6 +53,17 @@
   }
   .loadwarn[hidden] { display: none; }
 
+  /* 開催地（見出しと開場帯の間。設定タブが空欄なら非表示） */
+  .venue {
+    text-align: center; font-size: 17px; font-weight: 900; letter-spacing: 1px;
+    margin: 12px 0 0; padding: 8px 16px;
+    background: #fff; color: #1a1a1a;
+    border: 2px solid #33302b; border-radius: 10px;
+    white-space: pre-line; line-height: 1.4;
+  }
+  .venue::before { content: "📍 "; }
+  .venue[hidden] { display: none; }
+
   /* 開場のお知らせ */
   .doors {
     background: #33302b; color: #ffd166;
@@ -183,6 +194,8 @@
     <p id="subtitle"></p>
   </header>
 
+  <div class="venue" id="venue" hidden></div>
+
   <div class="doors" id="doors"></div>
 
   <div class="board" id="board">
@@ -214,7 +227,7 @@ const CSV_URL = {
 const DEMO_TIME = "21:50";
 
 const PX_PER_MIN = 9;                                  // 1分あたりの高さ
-const STAGE_COLORS = ["#d62828", "#1d6fb8", "#e09f1f"]; // 左から順の色
+const STAGE_COLORS = ["#1d6fb8", "#d62828", "#e09f1f"]; // 左から順の色（青・赤・黄）
 
 /* 予備データ（Googleの表が読めなかったときだけ使う保険。中身は本番の表をそのまま写したもの）
    ------------------------------------------------------------------
@@ -235,6 +248,7 @@ const FALLBACK = {
 同時開催ラベル,3ステージ同時開催
 開場帯の区切り,
 音符マーク,♪
+開催地,○○サーバー 2番地 お庭（見本データ）
 開場案内,2番地お庭へどうぞ
 注意書き,"『主催：いちれい』　　　　『ページ作成：あんしんいん』
 このページは真夜中音楽祭のタイムテーブルです。見るだけのページで、ログイン・入力・ダウンロードを求めることは一切ありません。"`,
@@ -684,6 +698,16 @@ async function main() {
     + (doorsMin !== null ? " " + fmt(doorsMin) + " " + T.kaijo + " " + sep1 + " " : " ")
     + fmt(state.axisStart) + " " + timeSep + " " + fmt(state.axisEnd)
     + " " + sep2 + " " + dojiLabel;
+
+  // 開催地（見出しと開場帯の間）。設定タブの「開催地」に文字があれば出す。空欄・行なしなら出さない。
+  const venueEl = document.getElementById("venue");
+  const venue = settings["開催地"];
+  if (venue && String(venue).trim()) {
+    venueEl.textContent = String(venue).replace(/\r\n?/g, "\n");
+    venueEl.hidden = false;
+  } else {
+    venueEl.hidden = true;
+  }
 
   const doors = document.getElementById("doors");
   if (doorsMin !== null) {
